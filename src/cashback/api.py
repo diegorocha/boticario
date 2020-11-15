@@ -18,6 +18,13 @@ class VendedorSerializer(serializers.ModelSerializer):
     cpf = serializers.CharField(max_length=14)  # Para permitir CPF formatado (será tratado no model)
     senha = PasswordField(source='password')
 
+    def create(self, validated_data):
+        instance = super(VendedorSerializer, self).create(validated_data)
+        # Corrige a criação da senha
+        instance.set_password(validated_data["password"])
+        instance.save()
+        return instance
+
     def validate_cpf(self, value):
         cpf = models.Vendedor.sanitizar_cpf(value)
         if not cpf:
