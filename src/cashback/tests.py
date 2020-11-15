@@ -106,3 +106,54 @@ class APITest(TestCase):
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertEqual(data["email"], ["Este campo é obrigatório."])
+
+    def test_login_vendedor_sucesso(self):
+        login = "teste"
+        senha = "senha@123"
+        Vendedor.objects.create_user(username=login, password=senha)
+        payload = {"login": login, "senha": senha}
+        response = self.client.post('/v1/vendedor/login/', payload, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", data)
+        self.assertIn("refresh", data)
+
+    def test_login_vendedor_incorreto(self):
+        payload = {"login": "teste", "senha": "senha"}
+        response = self.client.post('/v1/vendedor/login/', payload, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual({'erro': 'Login ou senha incorretos'}, data)
+
+    def test_login_vendedor_em_branco(self):
+        response = self.client.post('/v1/vendedor/login/', {}, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("login", data)
+        self.assertIn("senha", data)
+
+    def test_login_vendedor_refresh_token_sucesso(self):
+        login = "token"
+        senha = "senha@456"
+        Vendedor.objects.create_user(username=login, password=senha)
+        response = self.client.post('/v1/vendedor/login/', {"login": login, "senha": senha}, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("refresh", data)
+        refresh = data["refresh"]
+        response = self.client.post('/v1/vendedor/refresh_token/', {"refresh": refresh}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", data)
+
+    def test_login_vendedor_refresh_token_invalido(self):
+        payload = {"refresh": "foo"}
+        response = self.client.post('/v1/vendedor/refresh_token/', payload, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual({"refresh": ["Token inválido"]}, data)
+
+    def test_login_vendedor_refresh_sem_token(self):
+        response = self.client.post('/v1/vendedor/refresh_token/', {}, format='json')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual({"refresh": ["Este campo é obrigatório."]}, data)

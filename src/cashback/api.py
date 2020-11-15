@@ -1,7 +1,13 @@
-from rest_framework import mixins
+from django.contrib.auth import authenticate
+from rest_framework import mixins, status
+from rest_framework import routers
 from rest_framework import serializers
 from rest_framework import viewsets
-from rest_framework import routers
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from cashback import models
 
@@ -36,9 +42,43 @@ class VendedorSerializer(serializers.ModelSerializer):
         fields = ['login', 'nome', 'cpf', 'email', 'senha']
 
 
+class LoginSerializer(serializers.Serializer):
+    login = serializers.CharField(required=True)
+    senha = serializers.CharField(required=True)
+
+
 class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = models.Vendedor.objects.all()
     serializer_class = VendedorSerializer
+
+    @action(detail=False, methods=['post'])
+    def login(self, request):
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        username = serializer.data['login']
+        password = serializer.data['senha']
+        user = authenticate(username=username, password=password)
+        if not user:
+            return Response({"erro": "Login ou senha incorretos"}, status=status.HTTP_400_BAD_REQUEST)
+        tokens = RefreshToken.for_user(user)  # Gera os tokens JWT
+        return Response(
+            {
+                'refresh': str(tokens),
+                'access': str(tokens.access_token),
+            },
+            status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=['post'])
+    def refresh_token(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+        try:
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        except TokenError:
+            return Response({"refresh": ["Token inválido"]}, status=status.HTTP_400_BAD_REQUEST)
 
 
 v1_router = routers.DefaultRouter()
