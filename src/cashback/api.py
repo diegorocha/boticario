@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import authenticate
 from rest_framework import mixins, status
 from rest_framework import routers
@@ -10,6 +12,9 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from cashback import models
+
+
+logger = logging.getLogger('core')
 
 
 class PasswordField(serializers.CharField):
@@ -77,7 +82,8 @@ class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        except TokenError:
+        except TokenError as ex:
+            logger.exception(ex)
             return Response({"refresh": ["Token inválido"]}, status=status.HTTP_400_BAD_REQUEST)
 
 
