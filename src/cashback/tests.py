@@ -77,15 +77,14 @@ class APITest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        self.payload_vendedor = {"login": "dev", "nome": "Dev da Silva", "email": "dev@boticario.com.br", "senha": "dev@12345", "cpf": "15350946056"}
 
     def test_criar_vendedor_sucesso(self):
-        payload = {"login": "dev", "nome": "Dev da Silva", "senha": "dev@12345", "cpf": "15350946056"}
-        response = self.client.post('/v1/vendedor/', payload, format='json')
+        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
         self.assertEqual(response.status_code, 201)
 
     def test_criar_vendedor_sucesso_senha_escondida(self):
-        payload = {"login": "dev", "nome": "Dev da Silva", "senha": "dev@12345", "cpf": "15350946056"}
-        response = self.client.post('/v1/vendedor/', payload, format='json')
+        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
         data = response.json()
         self.assertEqual(data["senha"], "******")
 
@@ -95,8 +94,15 @@ class APITest(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_criar_vendedor_cpf_invalido(self):
-        payload = {"login": "dev", "nome": "Dev da Silva", "senha": "dev@12345", "cpf": "123"}
-        response = self.client.post('/v1/vendedor/', payload, format='json')
+        self.payload_vendedor["cpf"] = "123"
+        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertEqual(data["cpf"], ["CPF 123 inválido"])
+
+    def test_criar_vendedor_email_obrigatorio(self):
+        del self.payload_vendedor["email"]
+        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertEqual(data["email"], ["Este campo é obrigatório."])

@@ -14,6 +14,7 @@ class PasswordField(serializers.CharField):
 class VendedorSerializer(serializers.ModelSerializer):
     login = serializers.CharField(source='username')
     nome = serializers.CharField()
+    email = serializers.CharField(required=True)
     cpf = serializers.CharField(max_length=14)  # Para permitir CPF formatado (será tratado no model)
     senha = PasswordField(source='password')
 
