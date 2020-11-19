@@ -299,29 +299,29 @@ class APITest(TestCase):
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
 
     def test_criar_vendedor_sucesso(self):
-        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
+        response = self.client.post('/v1/vendedor', self.payload_vendedor, format='json')
         self.assertEqual(response.status_code, 201)
 
     def test_criar_vendedor_sucesso_senha_escondida(self):
-        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
+        response = self.client.post('/v1/vendedor', self.payload_vendedor, format='json')
         data = response.json()
         self.assertEqual(data["senha"], "******")
 
     def test_criar_vendedor_em_branco_400(self):
         payload = {}
-        response = self.client.post('/v1/vendedor/', payload, format='json')
+        response = self.client.post('/v1/vendedor', payload, format='json')
         self.assertEqual(response.status_code, 400)
 
     def test_criar_vendedor_cpf_invalido(self):
         self.payload_vendedor["cpf"] = "123"
-        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
+        response = self.client.post('/v1/vendedor', self.payload_vendedor, format='json')
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertEqual(data["cpf"], ["CPF 123 inválido"])
 
     def test_criar_vendedor_email_obrigatorio(self):
         del self.payload_vendedor["email"]
-        response = self.client.post('/v1/vendedor/', self.payload_vendedor, format='json')
+        response = self.client.post('/v1/vendedor', self.payload_vendedor, format='json')
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertEqual(data["email"], ["Este campo é obrigatório."])
@@ -331,7 +331,7 @@ class APITest(TestCase):
         senha = "senha@123"
         Vendedor.objects.create_user(username=login, password=senha)
         payload = {"login": login, "senha": senha}
-        response = self.client.post('/v1/vendedor/login/', payload, format='json')
+        response = self.client.post('/v1/vendedor/login', payload, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", data)
@@ -339,13 +339,13 @@ class APITest(TestCase):
 
     def test_login_vendedor_incorreto(self):
         payload = {"login": "teste", "senha": "senha"}
-        response = self.client.post('/v1/vendedor/login/', payload, format='json')
+        response = self.client.post('/v1/vendedor/login', payload, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual({'erro': 'Login ou senha incorretos'}, data)
 
     def test_login_vendedor_em_branco(self):
-        response = self.client.post('/v1/vendedor/login/', {}, format='json')
+        response = self.client.post('/v1/vendedor/login', {}, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertIn("login", data)
@@ -355,42 +355,42 @@ class APITest(TestCase):
         login = "token"
         senha = "senha@456"
         Vendedor.objects.create_user(username=login, password=senha)
-        response = self.client.post('/v1/vendedor/login/', {"login": login, "senha": senha}, format='json')
+        response = self.client.post('/v1/vendedor/login', {"login": login, "senha": senha}, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertIn("refresh", data)
         refresh = data["refresh"]
-        response = self.client.post('/v1/vendedor/refresh_token/', {"refresh": refresh}, format='json')
+        response = self.client.post('/v1/vendedor/refresh_token', {"refresh": refresh}, format='json')
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", data)
 
     def test_login_vendedor_refresh_token_invalido(self):
         payload = {"refresh": "foo"}
-        response = self.client.post('/v1/vendedor/refresh_token/', payload, format='json')
+        response = self.client.post('/v1/vendedor/refresh_token', payload, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual({"refresh": ["Token inválido"]}, data)
 
     def test_login_vendedor_refresh_sem_token(self):
-        response = self.client.post('/v1/vendedor/refresh_token/', {}, format='json')
+        response = self.client.post('/v1/vendedor/refresh_token', {}, format='json')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual({"refresh": ["Este campo é obrigatório."]}, data)
 
     def test_compra_precisa_de_login(self):
-        response = self.client.post('/v1/compra/')
+        response = self.client.post('/v1/compra')
         self.assertEqual(response.status_code, 401)
 
     def test_compra_options_autenticado(self):
         self.autenticate_client()
-        response = self.client.options('/v1/compra/')
+        response = self.client.options('/v1/compra')
         self.assertEqual(response.status_code, 200)
 
     def test_compra__cpf_invalido(self):
         cpf_venda = '1234567891'
         self.autenticate_client()
         self.payload_compra['cpf'] = cpf_venda
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"cpf": [f"CPF {cpf_venda} inválido"]})
 
@@ -400,7 +400,7 @@ class APITest(TestCase):
         self.autenticate_client(cpf=cpf_autenticado)
         self.payload_compra['cpf'] = cpf_venda
         Vendedor.objects.create_user(username='test', email='test@example.com', password='test@123', cpf=cpf_venda)
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"cpf": ["Não é permitido inserir uma compra para outro CPF"]})
 
@@ -409,7 +409,7 @@ class APITest(TestCase):
         cpf_venda = '67674926044'
         self.autenticate_client(cpf=cpf_autenticado)
         self.payload_compra['cpf'] = cpf_venda
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"cpf": [f"Objeto com cpf={cpf_venda} não existe."]})
 
@@ -420,7 +420,7 @@ class APITest(TestCase):
                                      cpf=cpf_limpo)
         self.autenticate_client()
         self.payload_compra['cpf'] = cpf_venda
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         data = response.json()
         self.assertEqual(response.status_code, 201)
         self.assertEqual(data["cpf"], cpf_limpo)
@@ -429,7 +429,7 @@ class APITest(TestCase):
         self.autenticate_client()
         data = now() - timedelta(days=30)
         self.payload_compra["data"] = data.isoformat()
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         data = response.json()
         self.assertEqual(response.status_code, 201)
 
@@ -437,7 +437,7 @@ class APITest(TestCase):
         self.autenticate_client()
         data = now() - timedelta(days=31)
         self.payload_compra["data"] = data.isoformat()
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual(data, {"data": ["Não é possível inserir uma compra de mais de 30 dias atrás"]})
@@ -464,7 +464,7 @@ class APITest(TestCase):
             "data": now().isoformat(),
             "valor": "100",
         }
-        response = self.client.post('/v1/compra/', data=payload, format="json")
+        response = self.client.post('/v1/compra', data=payload, format="json")
         data = response.json()
         self.assertEqual(response.status_code, 201)
         self.assertEqual(data["percentual_cashback"], 15)
@@ -479,7 +479,7 @@ class APITest(TestCase):
 
     def test_compra_com_sucesso(self):
         self.autenticate_client()
-        response = self.client.post('/v1/compra/', data=self.payload_compra, format="json")
+        response = self.client.post('/v1/compra', data=self.payload_compra, format="json")
         data = response.json()
         self.assertEqual(response.status_code, 201)
         self.assertIn("codigo", data)
@@ -491,7 +491,7 @@ class APITest(TestCase):
 
     def test_listagem_compras_do_vendedor_precisa_autenticacao(self):
         cpf = '08948135015'
-        response = self.client.get(f'/v1/vendedor/{cpf}/compras/')
+        response = self.client.get(f'/v1/vendedor/{cpf}/compras')
         self.assertEqual(response.status_code, 401)
 
     def test_listagem_compras_do_vendedor(self):
@@ -507,7 +507,7 @@ class APITest(TestCase):
         Compra.objects.create(codigo="345670", vendedor=vendedor, valor=Decimal(500), data=trinta_e_um_dias)
 
         self.autenticate_client(cpf=cpf)
-        response = self.client.get(f'/v1/vendedor/{cpf}/compras/')
+        response = self.client.get(f'/v1/vendedor/{cpf}/compras')
         data = response.json()
         self.assertEqual(response.status_code, 200)
 
@@ -536,14 +536,14 @@ class APITest(TestCase):
         Vendedor.objects.create(cpf=cpf_outro_vendedor, username="outro-vendedor")
 
         self.autenticate_client(cpf=cpf)
-        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/compras/')
+        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/compras')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual(data, {"erro": "Não é possível acessar a listagem de vendas de outro vendedor"})
 
     def test_acumulado_cashback_precisa_autenticacao(self):
         cpf = '15350946056'
-        response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+        response = self.client.get(f'/v1/vendedor/{cpf}/saldo')
         self.assertEqual(response.status_code, 401)
 
     def test_acumulado_cashback_outro_vendedor(self):
@@ -554,7 +554,7 @@ class APITest(TestCase):
         Vendedor.objects.create(cpf=cpf_outro_vendedor, username="outro-vendedor")
 
         self.autenticate_client(cpf=cpf)
-        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/saldo/')
+        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/saldo')
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual(data, {"erro": "Não é possível acessar o saldo de outro vendedor"})
@@ -563,13 +563,13 @@ class APITest(TestCase):
         with patch.object(SaldoAPI, 'get_saldo', return_value=None) as mock_client:
             cpf = '15350946056'
             self.autenticate_client(cpf=cpf)
-            response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+            response = self.client.get(f'/v1/vendedor/{cpf}/saldo')
             self.assertEqual(response.status_code, 500)
             mock_client.assert_called_once_with(cpf)
 
     def test_acumulado_cashback_integrado(self):
         cpf = '15350946056'
         self.autenticate_client(cpf=cpf)
-        response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+        response = self.client.get(f'/v1/vendedor/{cpf}/saldo')
         self.assertEqual(response.status_code, 200)
         self.assertIn("saldo", response.json())

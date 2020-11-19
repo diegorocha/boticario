@@ -183,6 +183,6 @@ class CompraViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-v1_router = routers.DefaultRouter()
+v1_router = routers.DefaultRouter(trailing_slash=False)
 v1_router.register('vendedor', VendedorViewset)
 v1_router.register('compra', CompraViewset)

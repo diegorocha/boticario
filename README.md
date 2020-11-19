@@ -65,14 +65,14 @@ Interpretei também que retorno da consulta de saldo de cashback é em centavos 
 
 ### Cadastro de Vendedor
 
-`POST /v1/vendedor/`
+`POST /v1/vendedor`
 
 Rota para a inclusão de um novo vendedor
 
 Exemplo de cURL
 
 ```
-curl -XPOST http://localhost:8080/v1/vendedor/ -H "Content-Type: application/json" -d '{"login": "teste", "nome": "Teste da Silva", "cpf": "554.436.380-33", "email": "teste@boticario.com.br", "senha": "teste@123"}'
+curl -XPOST http://localhost:8080/v1/vendedor -H "Content-Type: application/json" -d '{"login": "teste", "nome": "Teste da Silva", "cpf": "554.436.380-33", "email": "teste@boticario.com.br", "senha": "teste@123"}'
 ```
 
 Retorna 201 em caso de sucesso
@@ -85,12 +85,12 @@ Retorna 500 caso ocorra algum erro inesperado
 
 Rota para obtenção dos tokens JWT para autenticação
 
-`POST /v1/vendedor/login/`
+`POST /v1/vendedor/login`
 
 Exemplo de cURL
 
 ```
-curl -XPOST http://localhost:8080/v1/vendedor/login/ -H "Content-Type: application/json" -d '{"login": "teste", "senha": "teste@123"}'
+curl -XPOST http://localhost:8080/v1/vendedor/login -H "Content-Type: application/json" -d '{"login": "teste", "senha": "teste@123"}'
 ```
 
 Retorna 200 em caso de sucesso, com o seguinte JSON
@@ -114,12 +114,12 @@ Retorna 500 caso ocorra algum erro inesperado
 
 Rota para renovação do token `access` da autenticação.
 
-`POST /v1/vendedor/refresh_token/`
+`POST /v1/vendedor/refresh_token`
 
 Exemplo de cURL
 
 ```
-curl -XPOST http://localhost:8080/v1/vendedor/refresh_token/ -H "Content-Type: application/json" -d '{"refresh": "..."}'
+curl -XPOST http://localhost:8080/v1/vendedor/refresh_token -H "Content-Type: application/json" -d '{"refresh": "..."}'
 ```
 
 Retorna 200 em caso de sucesso, com o seguinte JSON
@@ -139,7 +139,7 @@ Retorna 500 caso ocorra algum erro inesperado
 
 Rota para a inclusão de uma venda do vendedor autenticado
 
-`POST /v1/compra/`
+`POST /v1/compra`
 
 Autenticação (via request header)
 
@@ -150,7 +150,7 @@ Authorization: Bearer {access}
 Exemplo de cURL
 
 ```
-curl -XPOST http://localhost:8080/v1/compra/ -H "Content-Type: application/json" -H "Authorization: Bearer [...]" -d '{"codigo": "234567", "valor": 100, "cpf": "554.436.380-33", "data": "2020-11-19T03:16:20"}'
+curl -XPOST http://localhost:8080/v1/compra -H "Content-Type: application/json" -H "Authorization: Bearer [...]" -d '{"codigo": "234567", "valor": 100, "cpf": "554.436.380-33", "data": "2020-11-19T03:16:20"}'
 ```
 
 Retorna 201 em caso de sucesso com o seguinte JSON
@@ -177,7 +177,7 @@ Retorna 500 caso ocorra algum erro inesperado
 
 Rota para listagem das vendas do vendedor
 
-`GET /v1/vendedor/{cpf}/compras/`
+`GET /v1/vendedor/{cpf}/compras`
 
 Autenticação (via request header)
 
@@ -188,7 +188,7 @@ Authorization: Bearer {access}
 Exemplo de cURL
 
 ```
-curl -XGET http://localhost:8080/v1/vendedor/55443638033/compras/ -H "Authorization: Bearer [...]"
+curl -XGET http://localhost:8080/v1/vendedor/55443638033/compras -H "Authorization: Bearer [...]"
 ```
 
 Retorna 200 em caso de sucesso com o seguinte JSON
@@ -230,7 +230,7 @@ Retorna 500 caso ocorra algum erro inesperado
 
 Rota para retorno do saldo total de cashback do vendedor
 
-`GET /v1/vendedor/{cpf}/saldo/`
+`GET /v1/vendedor/{cpf}/saldo`
 
 Autenticação (via request header)
 
@@ -241,7 +241,7 @@ Authorization: Bearer {access}
 Exemplo de cURL
 
 ```
-curl -XGET http://localhost:8080/v1/vendedor/55443638033/saldo/ -H "Authorization: Bearer [...]"
+curl -XGET http://localhost:8080/v1/vendedor/55443638033/saldo -H "Authorization: Bearer [...]"
 ```
 
 Retorna 200 em caso de sucesso com o seguinte JSON
