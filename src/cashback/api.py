@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
@@ -29,6 +30,12 @@ class ChoiceField(serializers.ChoiceField):
         if obj == '' and self.allow_blank:
             return obj
         return self._choices[obj]
+
+
+class ComprasPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
 
 
 class CPFRelatedField(serializers.SlugRelatedField):
@@ -107,6 +114,7 @@ class CompraSerializer(serializers.ModelSerializer):
 class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = models.Vendedor.objects.all()
     serializer_class = VendedorSerializer
+    pagination_class = ComprasPagination
 
     @action(detail=False, methods=['post'])
     def login(self, request):
@@ -138,6 +146,20 @@ class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
         except TokenError as ex:
             logger.exception(ex)
             return Response({"refresh": ["Token inválido"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def compras(self, request, pk):
+        if request.user.cpf != pk:
+            logger.info("Usuário tentou acessar listagem de vendas de outro vendedor",
+                        extra={"cpf_usuario": request.user.cpf, "cpf_listagem": pk})
+            return Response({"erro": "Não é possível acessar a listagem de vendas de outro vendedor"},
+                            status.HTTP_400_BAD_REQUEST)
+
+        # Vendedor precisa existir pois a rota exige autenticação
+        vendedor = models.Vendedor.objects.filter(cpf=pk).first()
+        page = self.paginate_queryset(vendedor.compras.order_by('-data'))
+        serializer = CompraSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
 
 class CompraViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):

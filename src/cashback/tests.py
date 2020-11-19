@@ -437,3 +437,55 @@ class APITest(TestCase):
         self.assertIn("percentual_cashback", data)
         self.assertIn("cashback", data)
         self.assertIn("valor", data)
+
+    def test_listagem_compras_do_vendedor_precisa_autenticacao(self):
+        cpf = '08948135015'
+        response = self.client.get(f'/v1/vendedor/{cpf}/compras/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_listagem_compras_do_vendedor(self):
+        cpf = '08948135015'
+        cpf_outro_vendedor = "41615628029"
+        trinta_e_um_dias = now() - timedelta(days=31)
+
+        vendedor = Vendedor.objects.create(cpf=cpf, username="vendedor")
+        outro_vendedor = Vendedor.objects.create(cpf=cpf_outro_vendedor, username="outro-vendedor")
+
+        Compra.objects.create(codigo="345678", vendedor=outro_vendedor, valor=Decimal(500), data=trinta_e_um_dias)
+        Compra.objects.create(codigo="345679", vendedor=vendedor, valor=Decimal(500), data=trinta_e_um_dias)
+        Compra.objects.create(codigo="345670", vendedor=vendedor, valor=Decimal(500), data=trinta_e_um_dias)
+
+        self.autenticate_client(cpf=cpf)
+        response = self.client.get(f'/v1/vendedor/{cpf}/compras/')
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+
+        # Verifica os atributos da paginação
+        self.assertEqual(type(data), dict)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+        self.assertIn("results", data)
+
+        # Verificação dos itens em si
+        results = data["results"]
+        self.assertEqual(len(results), 2)
+        self.assertIn("codigo", results[0])
+        self.assertIn("valor", results[0])
+        self.assertIn("data", results[0])
+        self.assertIn("percentual_cashback", results[0])
+        self.assertIn("cashback", results[0])
+        self.assertIn("status", results[0])
+
+    def test_listagem_compras_outro_vendedor(self):
+        cpf = '08948135015'
+        cpf_outro_vendedor = "41615628029"
+
+        Vendedor.objects.create(cpf=cpf, username="vendedor")
+        Vendedor.objects.create(cpf=cpf_outro_vendedor, username="outro-vendedor")
+
+        self.autenticate_client(cpf=cpf)
+        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/compras/')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(data, {"erro": "Não é possível acessar a listagem de vendas de outro vendedor"})
