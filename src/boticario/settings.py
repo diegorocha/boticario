@@ -17,13 +17,12 @@ SECRET_KEY = config('SECRET_KEY', default='&^@9#(oe&jp)h7146#h12z_c$q(3ok6q$0f8_
 # Normalmente eu colocaria o default False. True para facilitar os testes
 DEBUG = config("DEBUG", default=True, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']  # Necessário para rodar atrás de algum proxy reverso
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
