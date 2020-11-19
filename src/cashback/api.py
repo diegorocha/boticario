@@ -1,11 +1,14 @@
 import logging
 
 from django.contrib.auth import authenticate
-from rest_framework import mixins, status
+from django.contrib.auth.models import update_last_login
+from django.views.generic.dates import timezone_today
+from rest_framework import mixins, status, permissions, fields
 from rest_framework import routers
 from rest_framework import serializers
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
@@ -13,13 +16,34 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from cashback import models
 
-
 logger = logging.getLogger('core')
 
 
 class PasswordField(serializers.CharField):
     def to_representation(self, value):
         return '******'
+
+
+class ChoiceField(serializers.ChoiceField):
+    def to_representation(self, obj):
+        if obj == '' and self.allow_blank:
+            return obj
+        return self._choices[obj]
+
+
+class CPFRelatedField(serializers.SlugRelatedField):
+    slug_field = 'cpf'
+
+    def __init__(self, **kwargs):
+        super(CPFRelatedField, self).__init__(slug_field=CPFRelatedField.slug_field, **kwargs)
+
+    def run_validation(self, data=fields.empty):
+        initial_value = data
+        if isinstance(data, str):
+            data = models.Vendedor.sanitizar_cpf(data)
+            if not data:
+                raise ValidationError(f"CPF {initial_value} inválido")
+        return super(CPFRelatedField, self).run_validation(data=data)
 
 
 class VendedorSerializer(serializers.ModelSerializer):
@@ -52,6 +76,34 @@ class LoginSerializer(serializers.Serializer):
     senha = serializers.CharField(required=True)
 
 
+class CompraSerializer(serializers.ModelSerializer):
+    cpf = CPFRelatedField(queryset=models.Vendedor.objects.all(), source='vendedor')
+    cashback = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
+    status = ChoiceField(models.Compra.STATUS_CHOICES, read_only=True)
+
+    def get_user(self):
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            return request.user
+
+    def validate_cpf(self, value):
+        user = self.get_user()
+        if user.cpf != value.cpf:
+            raise ValidationError("Não é permitido inserir uma compra para outro CPF")
+        return value
+
+    def validate_data(self, value):
+        delta = timezone_today() - value.date()
+        if delta.days > 30:
+            raise ValidationError("Não é possível inserir uma compra de mais de 30 dias atrás")
+        return value
+
+    class Meta:
+        model = models.Compra
+        fields = ['codigo', 'valor', 'data', 'cpf', 'percentual_cashback', 'cashback', 'status']
+        read_only_fields = ['percentual_cashback']
+
+
 class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = models.Vendedor.objects.all()
     serializer_class = VendedorSerializer
@@ -66,6 +118,7 @@ class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
         user = authenticate(username=username, password=password)
         if not user:
             return Response({"erro": "Login ou senha incorretos"}, status=status.HTTP_400_BAD_REQUEST)
+        update_last_login(None, user)
         tokens = RefreshToken.for_user(user)  # Gera os tokens JWT
         return Response(
             {
@@ -87,5 +140,12 @@ class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
             return Response({"refresh": ["Token inválido"]}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CompraViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    queryset = models.Compra.objects.all()
+    serializer_class = CompraSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
 v1_router = routers.DefaultRouter()
 v1_router.register('vendedor', VendedorViewset)
+v1_router.register('compra', CompraViewset)
