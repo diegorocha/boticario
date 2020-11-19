@@ -16,6 +16,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from cashback import models
+from cashback.client import SaldoAPI
 
 logger = logging.getLogger('core')
 
@@ -160,6 +161,20 @@ class VendedorViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):
         page = self.paginate_queryset(vendedor.compras.order_by('-data'))
         serializer = CompraSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
+
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def saldo(self, request, pk):
+        if request.user.cpf != pk:
+            logger.info("Usuário tentou acessar saldo de cashback de outro vendedor",
+                        extra={"cpf_usuario": request.user.cpf, "cpf_listagem": pk})
+            return Response({"erro": "Não é possível acessar o saldo de outro vendedor"},
+                            status.HTTP_400_BAD_REQUEST)
+        saldo_api = SaldoAPI()
+        saldo = saldo_api.get_saldo(pk)
+        if not saldo:
+            logger.error("Não foi possível obter o saldo", extra={"cpf": pk})
+            return Response({}, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"saldo": saldo}, status.HTTP_200_OK)
 
 
 class CompraViewset(mixins.CreateModelMixin, viewsets.GenericViewSet):

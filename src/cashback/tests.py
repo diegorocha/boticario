@@ -1,13 +1,16 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils.timezone import now
 from model_bakery import baker
+from requests_mock import Mocker
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from cashback.api import ChoiceField
+from cashback.client import SaldoAPI
 from cashback.models import Vendedor, Compra
 from cashback.utils import digito_mod11
 
@@ -225,6 +228,54 @@ class ChoiceFieldTest(TestCase):
         )
         field = ChoiceField(choices=choices)
         self.assertEqual(field.to_representation(value), value)
+
+
+class SaldoAPITest(TestCase):
+
+    def setUp(self):
+        self.client = SaldoAPI()
+        self.client.base_url = "http://test.com"
+        self.cpf = "12312312323"
+
+    def test_get_config_from_settings(self):
+        url = 'http://example.com'
+        token = 'foo'
+        with self.settings(SALDO_API=url, SALDO_API_TOKEN=token):
+            client = SaldoAPI()
+            self.assertEqual(client.base_url, url)
+            self.assertEqual(client.session.headers, {"token": token})
+
+    def test_invalid_response_400_from_api(self):
+        with Mocker() as request_mocker:
+            request_mocker.get('http://test.com/v1/cashback', status_code=400)
+            self.assertIsNone(self.client.get_saldo(self.cpf))
+
+    def test_invalid_response_500_from_api(self):
+        with Mocker() as request_mocker:
+            request_mocker.get('http://test.com/v1/cashback', status_code=500)
+            self.assertIsNone(self.client.get_saldo(self.cpf))
+
+    def test_invalid_json_from_api(self):
+        with Mocker() as request_mocker:
+            mocked_response = {
+                "statusCode": 404,
+                "body": {
+                    "credit": 1234
+                }
+            }
+            request_mocker.get('http://test.com/v1/cashback', json=mocked_response)
+            self.assertIsNone(self.client.get_saldo(self.cpf))
+
+    def test_saldo_sucesso(self):
+        with Mocker() as request_mocker:
+            mocked_response = {
+                "statusCode": 200,
+                "body": {
+                    "credit": 2345
+                }
+            }
+            request_mocker.get('http://test.com/v1/cashback', json=mocked_response)
+            self.assertAlmostEqual(self.client.get_saldo(self.cpf), 23.45)
 
 
 class APITest(TestCase):
@@ -489,3 +540,36 @@ class APITest(TestCase):
         data = response.json()
         self.assertEqual(response.status_code, 400)
         self.assertEqual(data, {"erro": "Não é possível acessar a listagem de vendas de outro vendedor"})
+
+    def test_acumulado_cashback_precisa_autenticacao(self):
+        cpf = '15350946056'
+        response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_acumulado_cashback_outro_vendedor(self):
+        cpf = '08948135015'
+        cpf_outro_vendedor = "41615628029"
+
+        Vendedor.objects.create(cpf=cpf, username="vendedor")
+        Vendedor.objects.create(cpf=cpf_outro_vendedor, username="outro-vendedor")
+
+        self.autenticate_client(cpf=cpf)
+        response = self.client.get(f'/v1/vendedor/{cpf_outro_vendedor}/saldo/')
+        data = response.json()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(data, {"erro": "Não é possível acessar o saldo de outro vendedor"})
+
+    def test_acumulado_cashback_resposata_invalida_api_retorna_500(self):
+        with patch.object(SaldoAPI, 'get_saldo', return_value=None) as mock_client:
+            cpf = '15350946056'
+            self.autenticate_client(cpf=cpf)
+            response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+            self.assertEqual(response.status_code, 500)
+            mock_client.assert_called_once_with(cpf)
+
+    def test_acumulado_cashback_integrado(self):
+        cpf = '15350946056'
+        self.autenticate_client(cpf=cpf)
+        response = self.client.get(f'/v1/vendedor/{cpf}/saldo/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("saldo", response.json())
